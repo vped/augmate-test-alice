@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Alice App</title>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+    <style>
+        body { padding-top:50px; }
+    </style>
+</head>
+<body >
+	<div >
+    <div  class="container">
+        <div class="jumbotron">
+            <h1>Alice App</h1>
+        </div>
+        <label for="currency">Enter Cryptocurrency Symbol:</label>
+        <input style="width: 50%;display:inline-block;" type="text" class="form-control" name="parseDescription" placeholder="ex. BTC, ETH, LTC, XMR" id="currency"/>
+        <button onclick="getCryptoPrice()" class="btn btn-default">Get Price</button>
+    </div>
+    <div style="margin-top: 25px;" class="container">
+    	<div id="price"  class="col-xs-6">
+    		<pre id="result"></pre>
+    	    <button onclick="getDescription()" class="btn btn-default">Get Crypto Description</button>
+    	</div>
+    	<div id="price_description" class="col-xs-6">
+	    	<pre id="description"></pre>
+	    	 	<button  onclick="saveDescription()" class="btn btn-default">Save Description</button>
+    	</div>
+    </div>
+      <div id="dbid" style="margin-top: 25px;"class=" container jumbotron">
+            <pre id="db"></pre>
+           <button  onclick="getSavedDescription()" class="btn btn-default">Get Saved Description</button>
+        </div>
+        <div id="get_description" style="margin-top: 25px;"class=" container jumbotron">
+            <pre id="saved_description"></pre>
+        </div>
+    </div>
+    <hr>
+    <div style="margin-top: 100px;" class="container">
+    	<iframe style="border-style: none;width: 100%; height: 300px;" src="http://localhost:4000/"></iframe>
+    </div>
+</body>
+</html>
+<script type="text/javascript">
+    
+    let uid = null;
+    let json = {};
+
+	let ev = new EventSource('/getSaveNotification');
+	ev.onmessage = function (event) {
+       console.log("OK",event.data);
+        document.getElementById('dbid').style.display = 'block';
+        document.getElementById('db').innerHTML =  JSON.stringify(JSON.parse(event.data),null,'\t');;
+        let data = JSON.parse(event.data);
+        uid = data && data.uid;
+    };
+ 
+//Fetch Saved Description 
+function getSavedDescription () {
+	//If  Uid  is null, do not proceed the request
+	if(!uid){
+		alert("Something went wrong with the request. Pleasse start again")
+		return false;
+	}
+	let xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+         if (this.readyState == 4 && this.status == 200) {
+         	document.getElementById('get_description').style.display = 'block';
+         	let response = JSON.parse(this.responseText);
+         	document.getElementById('saved_description').innerHTML = JSON.stringify(JSON.parse(this.responseText),null,'\t');
+         }else {
+            document.getElementById('saved_description').innerHTML = this.responseText;
+         }
+    };
+    xhttp.open("GET", "/getSavedDescription/"+uid ,true);
+    xhttp.setRequestHeader("Content-type", "application/json");
+    xhttp.send();
+}
+	
+//Fetch Price for user input Crypto	
+function getCryptoPrice() {
+	let symbol = document.getElementById('currency').value;
+	symbol = symbol.replace(/[^a-zA-Z ]/g, "");
+	if(!symbol) {
+		return false;
+	}
+	json = {};       //re-initialize 
+   
+    //Ui Stuff
+	document.getElementById('dbid').style.display = 'none';
+	document.getElementById('price_description').style.display = 'none';
+	document.getElementById('get_description').style.display = 'none';
+
+    //Get Request
+    let xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+         if (this.readyState == 4 && this.status == 200) {
+         	let response = JSON.parse(this.responseText);
+         	document.getElementById('price').style.display = 'block';
+         	document.getElementById('result').innerHTML = JSON.stringify(JSON.parse(this.responseText),null,'\t');
+         	json.symbol = response.coin;
+         	json.price = response.result;
+         }else {
+            document.getElementById('result').innerHTML = this.responseText;
+
+         }
+    };
+    xhttp.open("GET", "/getCryptoPrice/"+symbol ,true);
+    xhttp.setRequestHeader("Content-type", "application/json");
+    xhttp.send();
+}
+
+
+//Get Description for the selected Crypto 
+function getDescription() {
+	let symbol = document.getElementById('currency').value;
+	symbol = symbol.replace(/[^a-zA-Z ]/g, "").toUpperCase();
+	if(!symbol) {
+		return false;
+	}
+
+	//Get Request
+	let xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+    	document.getElementById('price_description').style.display = 'block';
+        if (this.readyState == 4 && this.status == 200) {
+        	let response = JSON.parse(this.responseText);
+         	document.getElementById('description').innerHTML = symbol + ' : ' +  JSON.stringify(JSON.parse(this.responseText),null,'\t');
+         	json.description = response;
+        }else {
+        	delete json.description;
+        	document.getElementById('description').innerHTML = this.responseText;
+        }
+    };
+    xhttp.open("GET", "/getDescription/"+symbol ,true);
+    xhttp.setRequestHeader("Content-type", "application/json");
+    xhttp.send();
+}
+
+
+//This method sends description via POST call. This method do not wait for response.
+function saveDescription () {
+	let xhttp = new XMLHttpRequest();
+    xhttp.onreadystatechange = function() {
+       console.log("Request Send");
+    };
+    xhttp.open("POST", "/saveDescription" ,true);
+    xhttp.setRequestHeader("Content-type", "application/json");
+    xhttp.send(JSON.stringify(json));
+}
+
+
+</script>
+<style type="text/css">
+	pre {
+   background-color: ghostwhite;
+   border: 1px solid silver;
+   min-height: 20px;
+   }
+   #price,#price_description,#dbid,#get_description {
+   	display: none;
+   }
+</style>
